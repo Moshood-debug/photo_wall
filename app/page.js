@@ -74,10 +74,15 @@ export default function Home() {
             {status}
           </p>
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400 text-left font-mono">
-            Send photos from phone via LocalSend to:<br/>
+            Send photos from phone via LocalSend to:<br />
             <span className="text-indigo-400">public/uploads</span>
           </div>
+
+          {/* <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400 text-left font-mono mt-5">
+            <span className="text-red-400">Warning:</span> Do not add a photo format heic as it will not be displayed
+          </div> */}
         </div>
+
       )}
     </main>
   );
