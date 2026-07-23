@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "cross-env NODE_ENV=development node server/index.js",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "cross-env NODE_ENV=production node server/index.js"
   },
   "dependencies": {
     "chokidar": "^5.0.0",
-    "express": "^5.2.1",
+    "cross-env": "^10.1.0",
+    "express": "^4.22.2",
     "fs-extra": "^11.3.6",
     "next": "16.2.11",
     "react": "19.2.4",
