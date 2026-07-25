@@ -25,7 +25,6 @@ export default function Home() {
         setStatus("Error loading images from server");
       });
 
-    // 2. Listen to real-time events via Socket.IO
     const socket = io();
 
     socket.on("connect", () => {
@@ -36,6 +35,21 @@ export default function Home() {
       console.log("📷 New photo detected:", data.filename);
       const newPath = `/uploads/${data.filename}?t=${Date.now()}`;
       setLatestImage(newPath);
+    });
+
+    socket.on("remove-image", () => {
+      // Re-fetch remaining images if an image was deleted
+      fetch("/api/images")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.images && data.images.length > 0) {
+            setLatestImage(`/uploads/${data.images[0]}?t=${Date.now()}`);
+          } else {
+            setLatestImage(null);
+            setStatus("No images found in public/uploads");
+          }
+        })
+        .catch(console.error);
     });
 
     return () => socket.disconnect();

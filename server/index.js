@@ -7,7 +7,7 @@ const { init } = require("./socket");
 const startWatcher = require("./watcher");
 
 const dev = process.env.NODE_ENV !== "production";
-const hostname = "localhost";
+const hostname = process.env.HOSTNAME || "0.0.0.0";
 const port = process.env.PORT || 3000;
 
 const app = next({ dev, hostname, port });
@@ -17,13 +17,9 @@ app.prepare().then(() => {
     const server = express();
     const httpServer = http.createServer(server);
 
-    // Initialize Socket.IO server
     init(httpServer);
 
-    // Serve uploaded images statically
     server.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
-
-    // Start Watching the uploads directory
     startWatcher();
 
     // API endpoint to fetch existing images on initial page load
@@ -64,8 +60,9 @@ app.prepare().then(() => {
         return handle(req, res);
     });
 
-    httpServer.listen(port, (err) => {
+    httpServer.listen(port, hostname, (err) => {
         if (err) throw err;
-        console.log(`> Ready on http://${hostname}:${port}`);
+        console.log(`> Ready on http://localhost:${port}`);
+        console.log(`> Network access: http://10.120.69.203:${port}`);
     });
 });

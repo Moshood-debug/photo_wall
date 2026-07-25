@@ -5,7 +5,8 @@ function init(server) {
 
     io = new Server(server, {
         cors: {
-            origin: "*",
+            origin: true,
+            credentials: true,
         },
     });
 

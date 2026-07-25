@@ -5,7 +5,6 @@ const { getIO } = require("./socket");
 
 const uploadsDir = path.join(process.cwd(), "public", "uploads");
 
-// Standard image extensions supported by browsers
 const IMAGE_EXTENSIONS = new Set([
     ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico", ".avif", ".heic"
 ]);
@@ -44,6 +43,19 @@ function startWatcher() {
             io.emit("new-image", { filename });
         } else {
             console.log("❌ Socket.IO not initialized when image arrived");
+        }
+    });
+
+    watcher.on("change", (filePath) => {
+        const filename = path.basename(filePath);
+
+        if (!isImageFile(filename)) return;
+
+        console.log("🔄 Image updated:", filename);
+        const io = getIO();
+
+        if (io) {
+            io.emit("new-image", { filename });
         }
     });
 
