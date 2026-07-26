@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 
-export default function Home() {
+function PhotoWallContent() {
+  const searchParams = useSearchParams();
+  const folder = searchParams.get("folder") || "";
+
   const [latestImage, setLatestImage] = useState(null);
   const [status, setStatus] = useState("Initializing...");
 
   useEffect(() => {
-    // 1. Load initial latest image from server
-    fetch("/api/images")
+    const fetchUrl = folder ? `/api/images?folder=${encodeURIComponent(folder)}` : "/api/images";
+
+    // 1. Load initial latest image for this folder
+    fetch(fetchUrl)
       .then((res) => res.json())
       .then((data) => {
         if (data && data.images && data.images.length > 0) {
@@ -17,7 +23,7 @@ export default function Home() {
           console.log("Loaded initial image:", newest);
           setLatestImage(newest);
         } else {
-          setStatus("No images found in public/uploads");
+          setStatus(`No images found in public/uploads/${folder}`);
         }
       })
       .catch((err) => {
@@ -29,6 +35,7 @@ export default function Home() {
 
     socket.on("connect", () => {
       console.log("⚡ Photo stream connected:", socket.id);
+      socket.emit("join-folder", folder);
     });
 
     socket.on("new-image", (data) => {
@@ -38,26 +45,24 @@ export default function Home() {
     });
 
     socket.on("remove-image", () => {
-      // Re-fetch remaining images if an image was deleted
-      fetch("/api/images")
+      fetch(fetchUrl)
         .then((res) => res.json())
         .then((data) => {
           if (data && data.images && data.images.length > 0) {
             setLatestImage(`/uploads/${data.images[0]}?t=${Date.now()}`);
           } else {
             setLatestImage(null);
-            setStatus("No images found in public/uploads");
+            setStatus(`No images found in public/uploads/${folder}`);
           }
         })
         .catch(console.error);
     });
 
     return () => socket.disconnect();
-  }, []);
+  }, [folder]);
 
   const handleImageError = () => {
     console.warn("Image load pending or failed, retrying in 500ms:", latestImage);
-    // If the image was just created and hasn't finished writing completely, retry with updated timestamp
     setTimeout(() => {
       if (latestImage) {
         const cleanUrl = latestImage.split("?")[0];
@@ -65,6 +70,8 @@ export default function Home() {
       }
     }, 500);
   };
+
+  const uploadFolderPath = folder ? `public/uploads/${folder}` : "public/uploads";
 
   return (
     <main className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden">
@@ -77,6 +84,11 @@ export default function Home() {
             className="max-w-full max-h-full object-contain select-none"
             onError={handleImageError}
           />
+          {folder && (
+            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-mono text-indigo-300 border border-indigo-500/30">
+              📁 {folder}
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center text-zinc-400 p-6 flex flex-col items-center">
@@ -89,15 +101,18 @@ export default function Home() {
           </p>
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400 text-left font-mono">
             Send photos from phone via LocalSend to:<br />
-            <span className="text-indigo-400">public/uploads</span>
+            <span className="text-indigo-400">{uploadFolderPath}</span>
           </div>
-
-          {/* <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400 text-left font-mono mt-5">
-            <span className="text-red-400">Warning:</span> Do not add a photo format heic as it will not be displayed
-          </div> */}
         </div>
-
       )}
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center text-white font-mono text-sm">Loading...</div>}>
+      <PhotoWallContent />
+    </Suspense>
   );
 }

@@ -24,7 +24,9 @@ app.prepare().then(() => {
 
     // API endpoint to fetch existing images on initial page load
     server.get("/api/images", (req, res) => {
-        const uploadsDir = path.join(process.cwd(), "public", "uploads");
+        const folder = req.query.folder ? req.query.folder.replace(/\.\./g, "") : "";
+        const uploadsDir = path.join(process.cwd(), "public", "uploads", folder);
+
         if (!fs.existsSync(uploadsDir)) {
             return res.json({ images: [] });
         }
@@ -33,26 +35,39 @@ app.prepare().then(() => {
             ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico", ".avif", ".heic"
         ]);
 
-        fs.readdir(uploadsDir, (err, files) => {
-            if (err) {
-                return res.status(500).json({ error: "Unable to scan directory" });
-            }
+        const scanDirectory = (dir, relPath = "") => {
+            let results = [];
+            const list = fs.readdirSync(dir, { withFileTypes: true });
 
-            const imagesWithTime = files
-                .filter((file) => {
-                    const ext = path.extname(file).toLowerCase();
-                    return IMAGE_EXTENSIONS.has(ext);
-                })
-                .map((file) => {
-                    const filePath = path.join(uploadsDir, file);
-                    const stats = fs.statSync(filePath);
-                    return { file, mtime: stats.mtimeMs };
-                })
+            for (const entry of list) {
+                const fullPath = path.join(dir, entry.name);
+                const entryRelPath = relPath ? `${relPath}/${entry.name}` : entry.name;
+
+                if (entry.isDirectory() && !req.query.folder) {
+                    // Only recursively scan subdirectories if no specific folder parameter was passed
+                    results = results.concat(scanDirectory(fullPath, entryRelPath));
+                } else if (entry.isFile()) {
+                    const ext = path.extname(entry.name).toLowerCase();
+                    if (IMAGE_EXTENSIONS.has(ext)) {
+                        const stats = fs.statSync(fullPath);
+                        const fileUrlPath = folder ? `${folder}/${entry.name}` : entryRelPath;
+                        results.push({ file: fileUrlPath, mtime: stats.mtimeMs });
+                    }
+                }
+            }
+            return results;
+        };
+
+        try {
+            const imagesWithTime = scanDirectory(uploadsDir)
                 .sort((a, b) => b.mtime - a.mtime)
                 .map((item) => item.file);
 
             res.json({ images: imagesWithTime });
-        });
+        } catch (err) {
+            console.error("Error reading uploads directory:", err);
+            res.status(500).json({ error: "Unable to scan directory" });
+        }
     });
 
     // Let Next.js handle all other routes

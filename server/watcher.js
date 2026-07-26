@@ -21,12 +21,23 @@ function startWatcher() {
 
     const watcher = chokidar.watch(uploadsDir, {
         ignoreInitial: true,
-        depth: 0,
         awaitWriteFinish: {
             stabilityThreshold: 1000,
             pollInterval: 200
         }
     });
+
+    const getFolderAndFile = (filePath) => {
+        const relative = path.relative(uploadsDir, filePath);
+        const parts = relative.split(path.sep);
+        let folder = "";
+        let filename = relative;
+        if (parts.length > 1) {
+            folder = parts.slice(0, -1).join("/");
+            filename = parts.slice(0, -1).concat(parts[parts.length - 1]).join("/");
+        }
+        return { folder, filename, relativePath: relative.replace(/\\/g, "/") };
+    };
 
     watcher.on("add", (filePath) => {
         const filename = path.basename(filePath);
@@ -36,11 +47,15 @@ function startWatcher() {
             return;
         }
 
-        console.log("📷 New image added:", filename);
+        const { folder, relativePath } = getFolderAndFile(filePath);
+        console.log(`📷 New image added in folder [${folder || "root"}]:`, relativePath);
         const io = getIO();
 
         if (io) {
-            io.emit("new-image", { filename });
+            const roomName = folder ? `folder:${folder}` : "folder:root";
+            io.to(roomName).emit("new-image", { filename: relativePath, folder });
+            // Also emit globally for any general watchers
+            io.emit("new-image-global", { filename: relativePath, folder });
         } else {
             console.log("❌ Socket.IO not initialized when image arrived");
         }
@@ -51,19 +66,27 @@ function startWatcher() {
 
         if (!isImageFile(filename)) return;
 
-        console.log("🔄 Image updated:", filename);
+        const { folder, relativePath } = getFolderAndFile(filePath);
+        console.log(`🔄 Image updated in folder [${folder || "root"}]:`, relativePath);
         const io = getIO();
 
         if (io) {
-            io.emit("new-image", { filename });
+            const roomName = folder ? `folder:${folder}` : "folder:root";
+            io.to(roomName).emit("new-image", { filename: relativePath, folder });
+            io.emit("new-image-global", { filename: relativePath, folder });
         }
     });
 
     watcher.on("unlink", (filePath) => {
         const filename = path.basename(filePath);
+        if (!isImageFile(filename)) return;
+
+        const { folder, relativePath } = getFolderAndFile(filePath);
         const io = getIO();
         if (io) {
-            io.emit("remove-image", { filename });
+            const roomName = folder ? `folder:${folder}` : "folder:root";
+            io.to(roomName).emit("remove-image", { filename: relativePath, folder });
+            io.emit("remove-image-global", { filename: relativePath, folder });
         }
     });
 
