@@ -78,6 +78,6 @@ app.prepare().then(() => {
     httpServer.listen(port, hostname, (err) => {
         if (err) throw err;
         console.log(`> Ready on http://localhost:${port}`);
-        console.log(`> Network access: http://10.120.69.203:${port}`);
+        console.log(`> Network access: IP_ADDRESS:${port}`);
     });
 });
